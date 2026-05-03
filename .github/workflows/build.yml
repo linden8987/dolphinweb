@@ -1,16 +1,18 @@
-name: Build Web Dolphin
+name: Build and Deploy Web Dolphin
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   build-wasm:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -43,73 +45,34 @@ jobs:
         run: |
           ninja -C build
 
-      - name: Generate Unified Web Assets
+      - name: Prepare Flat Deployment
         run: |
-          # Create index.html with consistent icon linking
-          cat <<EOF > build/bin/index.html
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-              <title>Dolphin Web</title>
-              
-              <!-- Favicon and Apple Icon set to the same file -->
-              <link rel="icon" type="image/png" href="icon.png">
-              <link rel="apple-touch-icon" href="icon.png">
-              
-              <link rel="manifest" href="manifest.json">
-              <meta name="apple-mobile-web-app-capable" content="yes">
-              <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-              <style>
-                  body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: sans-serif; overflow: hidden; }
-                  #canvas { width: 100%; height: auto; max-width: 100vw; max-height: 100vh; image-rendering: pixelated; }
-                  #status { position: absolute; top: 10px; left: 10px; font-size: 12px; color: rgba(255, 255, 255, 0.5); }
-              </style>
-          </head>
-          <body>
-              <div id="status">Dolphin Web | Status: Initializing...</div>
-              <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
-              <script type="text/javascript">
-                  var Module = {
-                      canvas: document.getElementById('canvas'),
-                      print: console.log,
-                      setStatus: function(text) { document.getElementById('status').innerHTML = "Dolphin Web | " + text; }
-                  };
-              </script>
-              <script async src="dolphin-emu.js"></script>
-          </body>
-          </html>
-          EOF
-
-          # Create manifest.json using the same icon.png for all sizes
-          cat <<EOF > build/bin/manifest.json
-          {
-            "name": "Dolphin Web",
-            "short_name": "Dolphin",
-            "start_url": "index.html",
-            "display": "standalone",
-            "background_color": "#000000",
-            "theme_color": "#000000",
-            "icons": [
-              { "src": "icon.png", "sizes": "192x192", "type": "image/png" },
-              { "src": "icon.png", "sizes": "512x512", "type": "image/png" }
-            ]
-          }
-          EOF
-
-          # Copy icon.png to ensure it exists in the output directory
-          if [ -f "icon.png" ]; then
-            cp icon.png build/bin/icon.png
+          # Create a temporary staging folder for the website
+          mkdir -p staging
+          
+          # 1. Copy the compiled WASM and JS from the build folder
+          cp build/bin/dolphin-emu.wasm staging/
+          cp build/bin/dolphin-emu.js staging/
+          
+          # 2. Copy your index.html and manifest.json from the REPO ROOT
+          # This assumes you have manually placed them there as requested
+          cp index.html staging/
+          cp manifest.json staging/
+          
+          # 3. Copy the icon from the REPO ROOT
+          if [ -f "icon.png" ]; then 
+            cp icon.png staging/
           fi
 
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: dolphin-web-dist
-          path: |
-            build/bin/dolphin-emu.wasm
-            build/bin/dolphin-emu.js
-            build/bin/index.html
-            build/bin/manifest.json
-            build/bin/icon.png
+          # This uploads the files directly, unzipped, for GitHub Pages to host
+          path: 'staging'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

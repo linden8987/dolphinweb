@@ -1,0 +1,10 @@
+# Prevent Jekyll from scanning deep into your source code and submodules
+exclude:
+  - Externals
+  - build
+  - node_modules
+  - .github
+  - vendor
+
+# If you only want Jekyll to build a specific folder (like a 'docs' or 'www' folder)
+# you can set a specific source instead, but 'exclude' is usually easier for now.

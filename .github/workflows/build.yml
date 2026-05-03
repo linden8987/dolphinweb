@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  # This ensures that even a single character change in any file 
+  # pushed to the main branch will trigger a fresh WASM build.
+  workflow_dispatch: # Allows you to also run it manually if needed
 
 jobs:
   build-wasm:
@@ -19,7 +22,7 @@ jobs:
       - name: Setup Emscripten
         uses: mymindstorm/setup-emsdk@v14
         with:
-          version: 3.1.51 # Latest stable for WebGPU/WASM threading
+          version: 3.1.51 
 
       - name: Install Dependencies
         run: |
@@ -36,7 +39,7 @@ jobs:
             -DUSE_X11=OFF \
             -DENABLE_LTO=ON \
             -DWEBSPACE_OPTIMIZATIONS=ON \
-            -DENABLE_GENERIC=ON # Ensures compatibility across different WASM runtimes
+            -DENABLE_GENERIC=ON
 
       - name: Compile Dolphin WASM
         run: |

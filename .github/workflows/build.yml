@@ -1,0 +1,52 @@
+name: Build Web Dolphin
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-wasm:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.51 # Latest stable for WebGPU/WASM threading
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libglib2.0-dev
+
+      - name: Configure CMake
+        run: |
+          mkdir build
+          emcmake cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_QT=OFF \
+            -DENABLE_SDL=ON \
+            -DUSE_X11=OFF \
+            -DENABLE_LTO=ON \
+            -DWEBSPACE_OPTIMIZATIONS=ON \
+            -DENABLE_GENERIC=ON # Ensures compatibility across different WASM runtimes
+
+      - name: Compile Dolphin WASM
+        run: |
+          ninja -C build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dolphin-web-dist
+          path: |
+            build/bin/dolphin-emu.wasm
+            build/bin/dolphin-emu.js
+            build/bin/*.html
